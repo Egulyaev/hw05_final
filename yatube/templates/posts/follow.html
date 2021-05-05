@@ -3,18 +3,18 @@
 {% block title %} Избранные авторы {% endblock %}
 
 {% block content %}
-    <div class="container">
-           <h1> Посты ваших любимых авторов</h1>
-            {% include "include/menu.html" with index=True %}
-                {% for post in page %}
-                    {% include "include/post_item.html" with post=post %}
-                {% endfor %}
+<div class="container">
+    <h1> Посты ваших любимых авторов</h1>
+    {% include "include/menu.html" with index=True %}
+    {% for post in page %}
+    {% include "include/post_item.html" with post=post %}
+    {% endfor %}
 
 
-        <!-- Вывод паджинатора -->
-        {% if page.has_other_pages %}
-            {% include "paginator.html" with items=page paginator=paginator%}
-        {% endif %}
+    <!-- Вывод паджинатора -->
+    {% if page.has_other_pages %}
+    {% include "paginator.html" with items=page paginator=paginator%}
+    {% endif %}
 
-    </div>
+</div>
 {% endblock %}

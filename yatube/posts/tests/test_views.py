@@ -9,10 +9,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from django.core.cache import cache
 from django.core.cache.utils import make_template_fragment_key
 
-from ..models import Group, Post
+from ..models import Group, Post, Follow
 
 User = get_user_model()
 POST_PER_PAGE = 10
@@ -55,12 +54,13 @@ class PagesTests(TestCase):
             slug='proverka'
         )
         cls.user2 = User.objects.create_user(username='leo')
-        cls.post = Post.objects.create(
+        cls.post2 = Post.objects.create(
             text='Пост для проверки подписок',
             author=cls.user2,
             group=cls.group,
             image=cls.uploaded,
         )
+        cls.user3 = User.objects.create_user(username='john')
 
         cls.all_urls = (
             (reverse('index'), 'posts/index.html'),
@@ -83,6 +83,7 @@ class PagesTests(TestCase):
              )
         )
         cls.cache_name = 'index_page'
+
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
@@ -92,8 +93,13 @@ class PagesTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        self.guest_client = Client()
         self.authorized_client = Client()
+        self.authorized_client2 = Client()
+        self.authorized_client3 = Client()
         self.authorized_client.force_login(PagesTests.user)
+        self.authorized_client2.force_login(PagesTests.user2)
+        self.authorized_client3.force_login(PagesTests.user3)
 
     def check_post_in_context_correct(self, post):
         post_author_1 = post.author
@@ -104,7 +110,6 @@ class PagesTests(TestCase):
         self.assertEqual(post_text_1, PagesTests.post.text)
         self.assertEqual(str(post_pub_group_1), PagesTests.group.title)
         self.assertEqual(post_image_1, PagesTests.post.image)
-
 
     def test_pages_use_correct_template(self):
         """URL-адреса используют соответствующий шаблон."""
@@ -117,7 +122,7 @@ class PagesTests(TestCase):
         """Шаблон index сформирован с правильным контекстом и
         созданный пост появился на главной странице."""
         response = self.authorized_client.get(reverse('index'))
-        first_object = response.context['page'][0]
+        first_object = response.context['page'][1]
         self.check_post_in_context_correct(first_object)
 
     def test_group_post_show_correct_context(self):
@@ -150,7 +155,7 @@ class PagesTests(TestCase):
         response = self.authorized_client.get(
             reverse('group_posts', kwargs={'slug': PagesTests.group.slug})
         )
-        first_object = response.context['page'][0]
+        first_object = response.context['page'][1]
         self.check_post_in_context_correct(first_object)
 
     def test_profile_correct_context(self):
@@ -206,12 +211,40 @@ class PagesTests(TestCase):
 
     def test_subscribe(self):
         """Проверка, что авторизованный пользователь может
-        подписываться на других пользователей
-        и удалять их из подписок."""
-        response = self.authorized_client.post(
+        подписываться на других пользователей"""
+        follow_count = Follow.objects.count()
+        self.authorized_client.post(
+            reverse('profile_follow', kwargs={'username': PagesTests.user2})
+        )
+        self.assertEqual(Follow.objects.count(), follow_count + 1)
+
+    def test_unsubscribe(self):
+        """Проверка, что авторизованный пользователь может
+        отписываться от других пользователей"""
+        self.authorized_client.post(
             reverse('profile_follow', kwargs={'username': PagesTests.user2})
 
         )
+        follow_count = Follow.objects.count()
+        self.authorized_client.post(
+            reverse('profile_unfollow', kwargs={'username': PagesTests.user2})
+
+        )
+        self.assertEqual(Follow.objects.count(), follow_count - 1)
+
+    def test_new_post_subscribe(self):
+        """Новая запись пользователя появляется в ленте тех,
+        кто на него подписан и не появляется в ленте тех,
+        кто не подписан на него."""
+        """На странице тестовой группы не отображается пост другой группы"""
+        self.authorized_client.post(
+            reverse('profile_follow', kwargs={'username': PagesTests.user2})
+
+        )
+        response = self.authorized_client.get(reverse('follow_index'))
+        self.assertEqual(len(response.context['page']), 1)
+        response = self.authorized_client3.get(reverse('follow_index'))
+        self.assertEqual(len(response.context['page']), 0)
 
 
 class PaginationTests(TestCase):
@@ -251,5 +284,6 @@ class PaginationTests(TestCase):
         response = self.authorized_client.get(
             reverse('profile', kwargs={'username': str(PaginationTests.user)})
         )
-        self.assertEqual(response.context['author'].username, str(PaginationTests.user))
+        self.assertEqual(response.context['author'].username,
+                         str(PaginationTests.user))
         self.assertEqual(len(response.context['page']), POST_PER_PAGE)

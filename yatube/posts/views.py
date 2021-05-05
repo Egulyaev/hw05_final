@@ -12,8 +12,7 @@ MAX_POST_PER_PAGE = 10
 
 def index(request):
     """Главная страница"""
-    user = get_object_or_404(User, username=request.user)
-    post_list = Post.objects.filter(author=user)
+    post_list = Post.objects.all()
     paginator = Paginator(post_list, MAX_POST_PER_PAGE)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
@@ -26,26 +25,28 @@ def index(request):
 
 @login_required
 def follow_index(request):
-        """Страница подписчика с постами"""
-        user = get_object_or_404(User, username=request.user)
-        author_get = Follow.objects.filter(user=user)
-        author_list = [author.author for author in author_get ]
-        post_list = Post.objects.filter(author__username__in=author_list)
-        paginator = Paginator(post_list, MAX_POST_PER_PAGE)
-        page_number = request.GET.get('page')
-        page = paginator.get_page(page_number)
-        return render(
-            request,
-            'posts/follow.html',
-            {'page': page}
-        )
+    """Страница подписчика с постами"""
+    user = get_object_or_404(User, username=request.user)
+    author_get = Follow.objects.filter(user=user)
+    author_list = [author.author for author in author_get]
+    post_list = Post.objects.filter(author__username__in=author_list)
+    paginator = Paginator(post_list, MAX_POST_PER_PAGE)
+    page_number = request.GET.get('page')
+    page = paginator.get_page(page_number)
+    return render(
+        request,
+        'posts/follow.html',
+        {'page': page}
+    )
 
 
 @login_required
 def profile_follow(request, username):
     follower = get_object_or_404(User, username=request.user)
     following = get_object_or_404(User, username=username)
-    if follower == following:
+    if follower == following or Follow.objects.filter(
+            user=follower,
+            author=following):
         return redirect(
             profile,
             username=username
@@ -112,20 +113,33 @@ def profile(request, username):
     page = paginator.get_page(page_number)
     follows = len(Follow.objects.filter(user=author))
     followers = len(Follow.objects.filter(author=author))
-    follower = get_object_or_404(User, username=request.user)
+    # follower = get_object_or_404(User, username=request.user)
     following = get_object_or_404(User, username=username)
-    if Follow.objects.filter(user=follower, author=following):
+    if Follow.objects.filter(
+            # user=follower,
+            author=following):
         return render(
             request,
             'posts/profile.html',
-            {'page': page, 'author': author, 'username': username, 'followers': followers, 'follows':  follows, 'following': True}
+            {
+                'page': page,
+                'author': author,
+                'username': username,
+                'followers': followers,
+                'follows': follows,
+                'following': True}
         )
     return render(
         request,
         'posts/profile.html',
-        {'page': page, 'author': author, 'username': username, 'followers': followers, 'following': False, 'follows': follows}
+        {
+            'page': page,
+            'author': author,
+            'username': username,
+            'followers': followers,
+            'following': False,
+            'follows': follows}
     )
-
 
 
 def post_view(request, username, post_id):
@@ -151,12 +165,16 @@ def post_edit(request, username, post_id):
             username=username,
             post_id=post.pk,
         )
-    form = PostForm(request.POST or None, files=request.FILES or None, instance=post)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None,
+        instance=post
+    )
     if request.method == "GET" or not form.is_valid():
         return render(
             request,
             'posts/new.html',
-            {'form': form, 'is_edit': True}
+            {'form': form, 'is_edit': True, 'post': post}
         )
     post.save()
     return redirect(

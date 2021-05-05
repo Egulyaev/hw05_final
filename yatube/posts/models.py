@@ -62,6 +62,8 @@ class Comment(models.Model):
 
     def __str__(self):
         return self.text[:15]
+
+    class Meta:
         verbose_name_plural = "Комментарии"
         verbose_name = "Коментарий"
 
@@ -77,6 +79,9 @@ class Follow(models.Model):
                                verbose_name="Автор")
 
     def __str__(self):
-        return f'User: {self.user.username [:15]}, Author: {self.author.username [:15]}'
-        verbose_name_plural = "Подписчики"
-        verbose_name = "Подписчик"
+        return (f'User: {self.user.username[:15]},'
+                f' Author: {self.author.username[:15]}')
+
+        class Meta:
+            verbose_name_plural = "Подписчики"
+            verbose_name = "Подписчик"

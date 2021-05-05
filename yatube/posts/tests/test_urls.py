@@ -26,7 +26,7 @@ class RightURLTests(TestCase):
             group=cls.group
         )
         cls.public_urls = (
-            ('/', 'posts/index.html'),
+            (reverse('index'), 'posts/index.html'),
             (f'/group/{cls.group.slug}/', 'posts/group.html'),
             (f'/{cls.user}/', 'posts/profile.html'),
             (f'/{cls.user}/{cls.post.pk}/', 'posts/post.html'),
@@ -103,4 +103,3 @@ class RightURLTests(TestCase):
         """Проверка, что сервер возвращает 404 если страница не найдена"""
         response = self.authorized_client.get('/212345/')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
-

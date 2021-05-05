@@ -10,6 +10,8 @@ from django.urls import reverse
 from posts.forms import PostForm
 from posts.models import Group, Post
 
+from ..models import Comment
+
 User = get_user_model()
 
 
@@ -19,18 +21,17 @@ class TaskCreateFormTests(TestCase):
         super().setUpClass()
         settings.MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
         cls.group = Group.objects.create(
-                title='Тестовая группа',
-                description='Тестовый текст',
-                slug='test-slug'
-            )
+            title='Тестовая группа',
+            description='Тестовый текст',
+            slug='test-slug'
+        )
         cls.user = User.objects.create_user(username='GulyaevEO')
         cls.post = Post.objects.create(
             text='Самый длинный тестовый пост',
             author=cls.user,
-            group= cls.group,
+            group=cls.group,
         )
         cls.form = PostForm()
-
 
     @classmethod
     def tearDownClass(cls):
@@ -42,7 +43,6 @@ class TaskCreateFormTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(TaskCreateFormTests.user)
-
 
     def test_create_post(self):
         """Валидная форма создает запись post."""
@@ -104,7 +104,6 @@ class TaskCreateFormTests(TestCase):
             'image': uploaded,
         }
 
-
         response = self.authorized_client.post(
             reverse('post_edit',
                     kwargs={'username': TaskCreateFormTests.user,
@@ -124,3 +123,34 @@ class TaskCreateFormTests(TestCase):
                 image='posts/small2.gif'
             ).exists()
         )
+
+    def test_authorized_comment(self):
+        """Проверка, что только неавторизованный
+         пользователь  не может комментировать"""
+        form_data = {
+            'post': TaskCreateFormTests.post.pk,
+            'text': 'Самый длинный тестовый пост 3',
+            'author': TaskCreateFormTests.user,
+        }
+        address = (f'/{TaskCreateFormTests.user}/'
+                   f'{TaskCreateFormTests.post.pk}/comment/')
+        response = self.guest_client.post(
+            reverse('add_comment', kwargs={
+                'username': TaskCreateFormTests.user,
+                'post_id': TaskCreateFormTests.post.pk,
+            }),
+            data=form_data,
+            follow=True
+        )
+        self.assertRedirects(response,
+                             f'/auth/login/?next={address}')
+        self.assertEqual(len(Comment.objects.all()), 0)
+        self.authorized_client.post(
+            reverse('add_comment', kwargs={
+                'username': TaskCreateFormTests.user,
+                'post_id': TaskCreateFormTests.post.pk,
+            }),
+            data=form_data,
+            follow=True
+        )
+        self.assertEqual(len(Comment.objects.all()), 1)
