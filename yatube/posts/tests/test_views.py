@@ -1,17 +1,16 @@
+import os
 import shutil
 import tempfile
-import os
 
-from django.conf import settings
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache.utils import make_template_fragment_key
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from django.core.cache.utils import make_template_fragment_key
-
-from ..models import Group, Post, Follow
+from ..models import Follow, Group, Post
 
 User = get_user_model()
 POST_PER_PAGE = 10

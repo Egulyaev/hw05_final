@@ -3,8 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import PostForm, CommentForm
-from .models import Group, Post, Comment, Follow
+from .forms import CommentForm, PostForm
+from .models import Comment, Follow, Group, Post
 
 User = get_user_model()
 MAX_POST_PER_PAGE = 10
@@ -113,11 +113,8 @@ def profile(request, username):
     page = paginator.get_page(page_number)
     follows = len(Follow.objects.filter(user=author))
     followers = len(Follow.objects.filter(author=author))
-    # follower = get_object_or_404(User, username=request.user)
     following = get_object_or_404(User, username=username)
-    if Follow.objects.filter(
-            # user=follower,
-            author=following):
+    if Follow.objects.filter(author=following):
         return render(
             request,
             'posts/profile.html',
