@@ -1,4 +1,3 @@
-import os
 import shutil
 import tempfile
 
@@ -7,21 +6,21 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache.utils import make_template_fragment_key
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from ..models import Follow, Group, Post
 
+TEST_CACHE_SETTING = {}
 User = get_user_model()
 POST_PER_PAGE = 10
 
 
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(dir=settings.BASE_DIR))
 class PagesTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.list_dir = os.listdir(os.getcwd())
-        settings.MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
         small_gif = (
             b'\x47\x49\x46\x38\x39\x61\x02\x00'
             b'\x01\x00\x80\x00\x00\x00\x00\x00'
@@ -63,34 +62,42 @@ class PagesTests(TestCase):
 
         cls.all_urls = (
             (reverse('index'), 'posts/index.html'),
-            (reverse('group_posts',
-                     kwargs={'slug': cls.group.slug}),
-             'posts/group.html'),
-            (reverse('profile',
-                     kwargs={'username': cls.user}),
-             'posts/profile.html'),
-            (reverse('post_view',
-                     kwargs={'username': cls.user,
-                             'post_id': cls.post.pk}),
-             'posts/post.html'),
+            (reverse(
+                'group_posts',
+                kwargs={'slug': cls.group.slug}
+            ),
+                'posts/group.html'),
+            (reverse(
+                'profile',
+                kwargs={'username': cls.user}
+            ),
+                'posts/profile.html'),
+            (reverse(
+                'post_view',
+                kwargs={
+                    'username': cls.user,
+                    'post_id': cls.post.pk
+                }
+            ),
+                'posts/post.html'),
             (reverse('new_post'), 'posts/new.html',),
-            (reverse('post_edit',
-                     kwargs={'username': cls.user,
-                             'post_id': cls.post.pk}
-                     ),
-             'posts/new.html',
-             )
+            (reverse(
+                'post_edit',
+                kwargs={
+                    'username': cls.user,
+                    'post_id': cls.post.pk
+                }
+            ),
+                'posts/new.html',
+            )
         )
         cls.cache_name = 'index_page'
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
-        for path in os.listdir(os.getcwd()):
-            if path not in cls.list_dir:
-                shutil.rmtree(path, ignore_errors=True)
-        super().tearDownClass()
 
+    @override_settings(CACHES=TEST_CACHE_SETTING)
     def setUp(self):
         self.guest_client = Client()
         self.authorized_client = Client()
@@ -176,10 +183,13 @@ class PagesTests(TestCase):
         """Страница редактирования поста
         сформирована с правильным контекстом"""
         response = self.authorized_client.get(
-            reverse('post_edit',
-                    kwargs={'username': PagesTests.user,
-                            'post_id': PagesTests.post.pk, }
-                    )
+            reverse(
+                'post_edit',
+                kwargs={
+                    'username': PagesTests.user,
+                    'post_id': PagesTests.post.pk,
+                }
+            )
         )
         form_fields = {
             'group': forms.ModelChoiceField,
@@ -194,8 +204,13 @@ class PagesTests(TestCase):
         """Шаблон для страницы отдельного
         поста сформирован с правильным контекстом"""
         response = self.authorized_client.get(
-            reverse('post_view', kwargs={'username': PagesTests.user,
-                                         'post_id': PagesTests.post.pk, })
+            reverse(
+                'post_view',
+                kwargs={
+                    'username': PagesTests.user,
+                    'post_id': PagesTests.post.pk,
+                }
+            )
         )
         self.assertEqual(response.context['author'].username,
                          PagesTests.user.username)
@@ -208,7 +223,7 @@ class PagesTests(TestCase):
         key = make_template_fragment_key('index_page')
         self.assertIsNotNone(key)
 
-    def test_subscribe(self):
+    def test_authorized_user_can_follow(self):
         """Проверка, что авторизованный пользователь может
         подписываться на других пользователей"""
         follow_count = Follow.objects.count()
@@ -217,7 +232,7 @@ class PagesTests(TestCase):
         )
         self.assertEqual(Follow.objects.count(), follow_count + 1)
 
-    def test_unsubscribe(self):
+    def test_authorized_user_can_unfollow(self):
         """Проверка, что авторизованный пользователь может
         отписываться от других пользователей"""
         self.authorized_client.post(
@@ -237,7 +252,10 @@ class PagesTests(TestCase):
         кто не подписан на него."""
         """На странице тестовой группы не отображается пост другой группы"""
         self.authorized_client.post(
-            reverse('profile_follow', kwargs={'username': PagesTests.user2})
+            reverse(
+                'profile_follow',
+                kwargs={'username': PagesTests.user2}
+            )
 
         )
         response = self.authorized_client.get(reverse('follow_index'))
@@ -250,8 +268,8 @@ class PaginationTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='GulyaevEO')
-        cls.group = Group.objects.create(
+        cls.user = User.objects.get(username='GulyaevEO')
+        cls.group = Group.objects.get(
             title='Тестовая группа',
             description='Тестовый текст',
             slug='test-slug'
@@ -262,27 +280,33 @@ class PaginationTests(TestCase):
             group=cls.group,
         )
 
-        for i in range(11):
-            Post.objects.create(
-                text=f'Самый длинный тестовый пост{i}',
-                author=cls.user,
-                group=Group.objects.create(
-                    title=f'Тестовая группа{i}',
-                    description=f'Тестовый текст{i}',
-                    slug=f'test-slug{i}'
-                ),
-            )
+        post_list = [Post(
+            text=f'Самый длинный тестовый пост{i}',
+            author=cls.user,
+            group=Group.objects.create(
+                title=f'Тестовая группа{i}',
+                description=f'Тестовый текст{i}',
+                slug=f'test-slug{i}'
+            )) for i in range(11)]
+        Post.objects.bulk_create(post_list)
 
-    def setUp(self):
-        self.authorized_client = Client()
-        self.authorized_client.force_login(PaginationTests.user)
 
-    def test_username_page_correct_context(self):
-        """Шаблон для username сформирован с
-        правильным контекстом и пагинатор работает корректно."""
-        response = self.authorized_client.get(
-            reverse('profile', kwargs={'username': str(PaginationTests.user)})
+def setUp(self):
+    self.authorized_client = Client()
+    self.authorized_client.force_login(PaginationTests.user)
+
+
+def test_username_page_correct_context(self):
+    """Шаблон для username сформирован с
+    правильным контекстом и пагинатор работает корректно."""
+    response = self.authorized_client.get(
+        reverse(
+            'profile',
+            kwargs={'username': str(PaginationTests.user)}
         )
-        self.assertEqual(response.context['author'].username,
-                         str(PaginationTests.user))
-        self.assertEqual(len(response.context['page']), POST_PER_PAGE)
+    )
+    self.assertEqual(
+        response.context['author'].username,
+        PaginationTests.user.username
+    )
+    self.assertEqual(len(response.context['page']), POST_PER_PAGE)

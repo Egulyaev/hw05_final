@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.forms import PostForm
+
 from posts.models import Group, Post
 
 from ..models import Comment
@@ -30,7 +30,8 @@ class TaskCreateFormTests(TestCase):
             author=cls.user,
             group=cls.group,
         )
-        cls.form = PostForm()
+        cls.text_post2 = 'Самый длинный тестовый пост 2'
+        cls.text_post3 = 'Самый длинный тестовый пост 3'
 
     @classmethod
     def tearDownClass(cls):
@@ -61,7 +62,7 @@ class TaskCreateFormTests(TestCase):
         )
         form_data = {
             'group': TaskCreateFormTests.group.id,
-            'text': 'Самый длинный тестовый пост 2',
+            'text': TaskCreateFormTests.text_post2,
             'image': uploaded,
         }
 
@@ -74,7 +75,7 @@ class TaskCreateFormTests(TestCase):
         self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertTrue(
             Post.objects.filter(
-                text='Самый длинный тестовый пост 2',
+                text=TaskCreateFormTests.text_post2,
                 image='posts/small.gif'
             ).exists()
         )
@@ -99,26 +100,31 @@ class TaskCreateFormTests(TestCase):
         )
         form_data = {
             'group': TaskCreateFormTests.group.id,
-            'text': 'Самый длинный тестовый пост 3',
+            'text': TaskCreateFormTests.text_post3,
             'image': uploaded,
         }
 
         response = self.authorized_client.post(
-            reverse('post_edit',
-                    kwargs={'username': TaskCreateFormTests.user,
-                            'post_id': TaskCreateFormTests.post.id, }),
+            reverse(
+                'post_edit',
+                kwargs={
+                    'username': TaskCreateFormTests.user,
+                    'post_id': TaskCreateFormTests.post.id,
+                }),
             data=form_data,
             follow=True
         )
         self.assertRedirects(response,
-                             reverse('post_view',
-                                     kwargs={
-                                         'username': TaskCreateFormTests.user,
-                                         'post_id': self.post.id, }))
+                             reverse(
+                                 'post_view',
+                                 kwargs={
+                                     'username': TaskCreateFormTests.user,
+                                     'post_id': self.post.id,
+                                 }))
         self.assertEqual(Post.objects.count(), posts_count)
         self.assertTrue(
             Post.objects.filter(
-                text='Самый длинный тестовый пост 3',
+                text=TaskCreateFormTests.text_post3,
                 image='posts/small2.gif'
             ).exists()
         )
@@ -128,28 +134,34 @@ class TaskCreateFormTests(TestCase):
          пользователь  не может комментировать"""
         form_data = {
             'post': TaskCreateFormTests.post.pk,
-            'text': 'Самый длинный тестовый пост 3',
+            'text': TaskCreateFormTests.text_post3,
             'author': TaskCreateFormTests.user,
         }
         address = (f'/{TaskCreateFormTests.user}/'
                    f'{TaskCreateFormTests.post.pk}/comment/')
         response = self.guest_client.post(
-            reverse('add_comment', kwargs={
-                'username': TaskCreateFormTests.user,
-                'post_id': TaskCreateFormTests.post.pk,
-            }),
+            reverse(
+                'add_comment',
+                kwargs={
+                    'username': TaskCreateFormTests.user,
+                    'post_id': TaskCreateFormTests.post.pk,
+                }),
             data=form_data,
             follow=True
         )
-        self.assertRedirects(response,
-                             f'/auth/login/?next={address}')
-        self.assertEqual(len(Comment.objects.all()), 0)
+        self.assertRedirects(
+            response,
+            f'/auth/login/?next={address}'
+        )
+        self.assertEqual(Comment.objects.count(), 0)
         self.authorized_client.post(
-            reverse('add_comment', kwargs={
-                'username': TaskCreateFormTests.user,
-                'post_id': TaskCreateFormTests.post.pk,
-            }),
+            reverse(
+                'add_comment',
+                kwargs={
+                    'username': TaskCreateFormTests.user,
+                    'post_id': TaskCreateFormTests.post.pk,
+                }),
             data=form_data,
             follow=True
         )
-        self.assertEqual(len(Comment.objects.all()), 1)
+        self.assertEqual(Comment.objects.count(), 1)

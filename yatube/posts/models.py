@@ -26,17 +26,26 @@ class Group(models.Model):
 class Post(models.Model):
     text = models.TextField(verbose_name="Текст поста")
     pub_date = models.DateTimeField("Дата публикации", auto_now_add=True)
-    author = models.ForeignKey(User,
-                               on_delete=models.CASCADE,
-                               related_name="posts",
-                               verbose_name="Автор поста")
-    group = models.ForeignKey(Group, on_delete=models.SET_NULL,
-                              blank=True,
-                              null=True,
-                              related_name="posts",
-                              verbose_name="Группа поста")
-    image = models.ImageField(upload_to="posts/", blank=True, null=True,
-                              verbose_name="Изображение")
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="posts",
+        verbose_name="Автор поста"
+    )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="posts",
+        verbose_name="Группа поста"
+    )
+    image = models.ImageField(
+        upload_to="posts/",
+        blank=True,
+        null=True,
+        verbose_name="Изображение"
+    )
 
     def __str__(self):
         return self.text[:15]
@@ -48,17 +57,23 @@ class Post(models.Model):
 
 
 class Comment(models.Model):
-    post = models.ForeignKey(Post,
-                             on_delete=models.CASCADE,
-                             related_name="comments",
-                             verbose_name="Комментируемый пост")
-    author = models.ForeignKey(User,
-                               on_delete=models.CASCADE,
-                               related_name="comments",
-                               verbose_name="Автор комментария")
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Комментируемый пост"
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Автор комментария"
+    )
     text = models.TextField(verbose_name="Текст комментария")
-    created = models.DateTimeField(auto_now_add=True,
-                                   verbose_name="Дата комментария")
+    created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Дата комментария"
+    )
 
     def __str__(self):
         return self.text[:15]
@@ -69,19 +84,26 @@ class Comment(models.Model):
 
 
 class Follow(models.Model):
-    user = models.ForeignKey(User,
-                             on_delete=models.CASCADE,
-                             related_name="follower",
-                             verbose_name="Подписчик")
-    author = models.ForeignKey(User,
-                               on_delete=models.CASCADE,
-                               related_name="following",
-                               verbose_name="Автор")
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="follower",
+        verbose_name="Подписчик"
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="following",
+        verbose_name="Автор"
+    )
 
     def __str__(self):
-        return (f'User: {self.user.username[:15]},'
-                f' Author: {self.author.username[:15]}')
+        return (
+            f'User: {self.user.username[:15]},'
+            f' Author: {self.author.username[:15]}'
+        )
 
-        class Meta:
-            verbose_name_plural = "Подписчики"
-            verbose_name = "Подписчик"
+    class Meta:
+        verbose_name_plural = "Подписчики"
+        verbose_name = "Подписчик"
+        unique_together = ['user', 'author']
