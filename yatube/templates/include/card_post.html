@@ -6,19 +6,19 @@
     <div class="card-body">
         <p class="card-text">
             <!-- Ссылка на страницу автора в атрибуте href; username автора в тексте ссылки -->
-            <a href="/{{ author }}/"><strong class="d-block text-gray-dark">@{{ author }}</strong></a>
+            <a href="{% url 'profile' post.author.username %}"><strong class="d-block text-gray-dark">@{{ author }}</strong></a>
             <!-- Текст поста -->
             {{ post.text|linebreaksbr }}
         </p>
         <div class="d-flex justify-content-between align-items-center">
             <div class="btn-group ">
                 <!-- Ссылка на страницу записи в атрибуте href-->
-                <a class="btn btn-sm text-muted" href="/{{ author }}/{{ post.id }}/" role="button">Добавить
+                <a class="btn btn-sm text-muted" href="{% url 'add_comment' post.author.username post.id %}" role="button">Добавить
                     комментарий</a>
                 <!-- Ссылка на редактирование, показывается только автору записи -->
                 {% if user.is_authenticated %}
-                {% if user.username|stringformat:'s' == post.author|stringformat:'s' %}
-                <a class="btn btn-sm text-muted" href="/{{ author }}/{{ post.id }}/edit" role="button">Редактировать</a>
+                {% if user == post.author %}
+                <a class="btn btn-sm text-muted" href="{% url 'post_edit' post.author.username post.id %}" role="button">Редактировать</a>
                 {% endif%}
                 {% endif %}
             </div>
