@@ -1,13 +1,13 @@
 from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase, override_settings
+from django.core.cache import cache
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from posts.models import Group, Post
 
 User = get_user_model()
-TEST_CACHE_SETTING = {}
 
 
 class RightURLTests(TestCase):
@@ -37,13 +37,13 @@ class RightURLTests(TestCase):
             (f'/{cls.user}/{cls.post.pk}/edit/', 'posts/new.html')
         )
 
-    @override_settings(CACHES=TEST_CACHE_SETTING)
     def setUp(self):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(RightURLTests.user)
         self.authorized_client2 = Client()
         self.authorized_client2.force_login(RightURLTests.user2)
+        cache.clear()
 
     def test_public_pages(self):
         """Публичные страницы имеют код ответа 200"""

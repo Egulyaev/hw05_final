@@ -4,6 +4,7 @@ import tempfile
 from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.cache.utils import make_template_fragment_key
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
@@ -11,7 +12,6 @@ from django.urls import reverse
 
 from ..models import Follow, Group, Post
 
-TEST_CACHE_SETTING = {}
 User = get_user_model()
 POST_PER_PAGE = 10
 
@@ -97,7 +97,6 @@ class PagesTests(TestCase):
     def tearDownClass(cls):
         shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
 
-    @override_settings(CACHES=TEST_CACHE_SETTING)
     def setUp(self):
         self.guest_client = Client()
         self.authorized_client = Client()
@@ -106,6 +105,7 @@ class PagesTests(TestCase):
         self.authorized_client.force_login(PagesTests.user)
         self.authorized_client2.force_login(PagesTests.user2)
         self.authorized_client3.force_login(PagesTests.user3)
+        cache.clear()
 
     def check_post_in_context_correct(self, post):
         post_author_1 = post.author
@@ -134,14 +134,14 @@ class PagesTests(TestCase):
     def test_group_post_show_correct_context(self):
         """Шаблон group_post сформирован с правильным контекстом."""
         response = self.authorized_client.get(
-            reverse('group_posts', kwargs={'slug': {PagesTests.group.slug}})
+            reverse('group_posts', kwargs={'slug': PagesTests.group.slug})
         )
         self.assertEqual(response.context['group'].title,
                          PagesTests.group.title)
         self.assertEqual(response.context['group'].description,
-                         PagesTests.post.text)
+                         PagesTests.group.description)
         self.assertEqual(response.context['group'].slug,
-                         {PagesTests.group.slug})
+                         PagesTests.group.slug)
 
     def test_new_post_page_shows_correct_context(self):
         """Шаблон new_post  сформирован с правильным контекстом."""
@@ -156,7 +156,7 @@ class PagesTests(TestCase):
                 form_field = response.context['form'].fields[value]
                 self.assertIsInstance(form_field, expected)
 
-    def test_group_post_show_correct_context(self):
+    def test_group_post_show_correct_post(self):
         """На странице тестовой группы отображается пост группы"""
         response = self.authorized_client.get(
             reverse('group_posts', kwargs={'slug': PagesTests.group.slug})
@@ -254,9 +254,8 @@ class PagesTests(TestCase):
         self.authorized_client.post(
             reverse(
                 'profile_follow',
-                kwargs={'username': PagesTests.user2}
+                kwargs={'username': PagesTests.user2.username}
             )
-
         )
         response = self.authorized_client.get(reverse('follow_index'))
         self.assertEqual(len(response.context['page']), 1)
